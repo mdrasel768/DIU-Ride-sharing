@@ -4,7 +4,7 @@ WORKDIR /app
 COPY . .
 RUN mvn clean package -DskipTests
 
-# Step 2: Spring Boot JAR চালানো
+# Step 2: Spring Boot JAR চালানো (eclipse-temurin ব্যবহার করা হয়েছে)
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
