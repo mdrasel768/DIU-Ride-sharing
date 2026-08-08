@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ride Sharing - Login & Register</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; font-family: 'Segoe UI', sans-serif; }
+
+        body {
+            background: url("/image/diu.jpg") no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 24px 20px;
+        }
+
+        @supports(selector(body:has(*))) {
+            body:has(#login:checked) { align-items: center; }
+            body:has(#register:checked) { align-items: flex-start; }
+        }
+
+        .container {
+            background: #fff;
+            width: 100%;
+            max-width: 460px;
+            padding: 22px 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, .2);
+            max-height: 88vh;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .title {
+            color: #2d4463;
+            text-align: center;
+            font-weight: 800;
+            white-space: nowrap;
+            font-size: clamp(32px, 5.5vw, 44px);
+            margin-bottom: 18px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 14px;
+        }
+
+        .tabs label {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            cursor: pointer;
+            background: #e0e0e0;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            transition: .3s;
+        }
+
+        input[type="radio"] {
+            display: none;
+        }
+
+        #login:checked ~ .tabs label[for="login"],
+        #register:checked ~ .tabs label[for="register"] {
+            background: #2d4463;
+            color: #fff;
+        }
+
+        form {
+            display: none;
+            animation: fadeIn .4s ease-in-out;
+        }
+
+        #login:checked ~ .form-container .login-form,
+        #register:checked ~ .form-container .register-form {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .alert {
+            margin: 10px 0 0;
+            font-size: 14px;
+        }
+
+        .alert.error { color: #8a0d0d; }
+        .alert.success { color: #0b5f3e; }
+
+        .muted {
+            font-size: 12px;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            background: #eee;
+            color: #333;
+            margin-top: 6px;
+        }
+
+        .badge.ok {
+            background: #e7f7ee;
+            color: #0b5f3e;
+        }
+
+        .badge.no {
+            background: #fdecec;
+            color: #8a0d0d;
+        }
+
+        :root {
+            --control-h: 48px;
+            --side-btn-w: 130px;
+        }
+
+        form input {
+            width: 100%;
+            height: var(--control-h);
+            padding: 0 12px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        .password-wrap {
+            position: relative;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .password-wrap input {
+            width: 100%;
+            height: var(--control-h);
+            padding: 0 46px 0 12px;
+            margin: 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        .toggle-pass {
+            position: absolute;
+            top: 50%;
+            right: 12px;
+            transform: translateY(-50%);
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            color: #2d4463;
+            padding: 0;
+            margin: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: none;
+        }
+
+        .toggle-pass:hover {
+            transform: translateY(-50%) scale(1.08);
+            box-shadow: none;
+            background: transparent;
+        }
+
+        .toggle-pass:focus {
+            outline: none;
+        }
+
+        form button {
+            width: 100%;
+            height: var(--control-h);
+            padding: 0 14px;
+            background: linear-gradient(135deg, #2d4463, #2d4463);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all .4s ease;
+        }
+
+        form button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 12px rgba(45, 68, 99, .4);
+        }
+
+        .row-inline {
+            display: grid;
+            grid-template-columns: 1fr var(--side-btn-w);
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn-secondary {
+            width: 100%;
+            height: var(--control-h);
+            background: linear-gradient(135deg, #2d4463, #2d4463);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all .4s ease;
+            padding: 0 14px;
+        }
+
+        .btn-secondary:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 12px rgba(45, 68, 99, .4);
+        }
+
+        .row-inline:first-of-type > div {
+            position: relative;
+        }
+
+        #otp-status {
+            position: absolute;
+            left: 0;
+            top: calc(100% + 4px);
+        }
+
+        .row-inline:first-of-type {
+            margin-bottom: 22px;
+        }
+
+        .forgot-wrap {
+            margin-top: 10px;
+            text-align: right;
+        }
+
+        .forgot-link {
+            color: #2d4463;
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 420px) {
+            :root { --control-h: 46px; --side-btn-w: 140px; }
+            .container { max-width: 92vw; padding: 16px; max-height: 90vh; }
+            .title { font-size: clamp(28px, 7vw, 40px); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="title">DIU RIDESHARING</h1>
+
+    <input type="radio" id="login" name="tab" checked />
+    <input type="radio" id="register" name="tab" />
+
+    <div class="tabs">
+        <label for="login">Login</label>
+        <label for="register">Register</label>
+    </div>
+
+    <div class="form-container">
+        <div id="status" aria-live="polite"></div>
+
+        <form class="login-form" novalidate>
+            <input id="login-email" type="email" placeholder="Email" required />
+
+            <div class="password-wrap">
+                <input id="login-password" type="password" placeholder="Password" required />
+                <button type="button" class="toggle-pass" data-target="login-password" aria-label="Show password">👁</button>
+            </div>
+
+            <button id="login-btn" type="submit">Login</button>
+
+            <div class="forgot-wrap">
+                <a href="/forgot-password.html" class="forgot-link">Forgot Password?</a>
+            </div>
+        </form>
+
+        <form class="register-form" novalidate>
+            <input id="reg-name" type="text" placeholder="Full Name" required />
+            <input id="reg-phone" type="tel" placeholder="Phone (e.g. 01XXXXXXXXX)" required />
+
+            <div class="row-inline">
+                <div>
+                    <input id="reg-email" type="email" placeholder="Email (@diu.edu.bd)" required />
+                    <div id="otp-status" class="badge no">OTP not verified</div>
+                </div>
+                <button id="send-otp-btn" type="button" class="btn-secondary">Send OTP</button>
+            </div>
+
+            <div class="row-inline">
+                <input id="otp-code" type="text" placeholder="Enter OTP" />
+                <button id="verify-otp-btn" type="button" class="btn-secondary">Verify</button>
+            </div>
+
+            <div class="password-wrap">
+                <input id="reg-password" type="password" placeholder="Password (min 8 chars)" required minlength="8" pattern=".{8,}" />
+                <button type="button" class="toggle-pass" data-target="reg-password" aria-label="Show password">👁</button>
+            </div>
+
+            <input id="studentId" type="text" placeholder="Student ID" required />
+            <input id="department" type="text" placeholder="Department" required />
+            <input id="licenseNumber" type="text" placeholder="License Number (if driver)" />
+            <input id="bikeNumber" type="text" placeholder="Bike Number Plate (if driver)" />
+
+            <button id="register-btn" type="submit">Register</button>
+            <div class="muted">⚠️ If you want to become a driver, provide license number and bike number plate.</div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const API_BASE = window.AUTH_API_BASE || `${location.origin}/api/auth`;
+    const statusBox = document.getElementById('status');
+
+    function setStatus(msg, type = 'success') {
+        statusBox.innerHTML = msg ? `<p class="alert ${type}">${msg}</p>` : '';
+    }
+
+    async function postJSON(url, body) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const text = await res.text();
+        let data = null;
+
+        try {
+            data = text ? JSON.parse(text) : null;
+        } catch (_) {}
+
+        if (!res.ok) {
+            throw new Error(data?.message || data?.error || text || 'Request failed');
+        }
+
+        return data;
+    }
+
+    function clearAuthData() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('role');
+        localStorage.removeItem('email');
+        localStorage.removeItem('name');
+    }
+
+    function saveAuthData(data) {
+        if (data?.token) localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data?.role || '');
+        localStorage.setItem('email', data?.email || '');
+        localStorage.setItem('name', data?.name || '');
+    }
+
+    function goToPanelByRole(resp) {
+        const role = (resp?.role || '').toUpperCase();
+
+        if (role === 'ADMIN') {
+            location.href = '/admin-panel.html';
+        } else if (role === 'DRIVER') {
+            location.href = '/driver-panel.html';
+        } else if (role === 'RIDER') {
+            location.href = '/rider-panel.html';
+        } else {
+            setStatus('Login successful, but role not recognized.', 'error');
+        }
+    }
+
+    (async function autoRedirectIfLoggedIn() {
+        const t = localStorage.getItem('token');
+        if (!t) return;
+
+        try {
+            const meRes = await fetch(`${API_BASE}/me`, {
+                headers: { Authorization: 'Bearer ' + t }
+            });
+
+            if (!meRes.ok) {
+                clearAuthData();
+                return;
+            }
+
+            const me = await meRes.json();
+
+            localStorage.setItem('role', me?.role || '');
+            localStorage.setItem('email', me?.email || '');
+            localStorage.setItem('name', me?.name || '');
+
+            goToPanelByRole(me);
+        } catch (_) {
+            clearAuthData();
+        }
+    })();
+
+    (function applyTabFromQuery() {
+        const tab = new URLSearchParams(location.search).get('tab');
+        document.getElementById(tab === 'register' ? 'register' : 'login').checked = true;
+    })();
+
+    let otpVerified = false;
+
+    function markOtpVerified(ok) {
+        otpVerified = ok;
+        const badge = document.getElementById('otp-status');
+
+        if (ok) {
+            badge.textContent = 'OTP verified';
+            badge.className = 'badge ok';
+        } else {
+            badge.textContent = 'OTP not verified';
+            badge.className = 'badge no';
+        }
+    }
+
+    document.getElementById('send-otp-btn').addEventListener('click', async () => {
+        const email = document.getElementById('reg-email').value.trim();
+
+        if (!email) {
+            return setStatus('Enter email first', 'error');
+        }
+
+        try {
+            await postJSON(`${API_BASE}/send-otp`, { email });
+            markOtpVerified(false);
+            setStatus('OTP sent to email.', 'success');
+        } catch (e) {
+            setStatus('OTP send failed: ' + e.message, 'error');
+        }
+    });
+
+    document.getElementById('verify-otp-btn').addEventListener('click', async () => {
+        const email = document.getElementById('reg-email').value.trim();
+        const code = document.getElementById('otp-code').value.trim();
+
+        if (!email || !code) {
+            return setStatus('Enter email and OTP code', 'error');
+        }
+
+        try {
+            const resp = await postJSON(`${API_BASE}/verify-otp`, { email, code });
+
+            if (resp?.verified) {
+                markOtpVerified(true);
+                setStatus('OTP verified!', 'success');
+            } else {
+                markOtpVerified(false);
+                setStatus(resp?.error || 'Invalid OTP', 'error');
+            }
+        } catch (e) {
+            setStatus('Verify failed: ' + e.message, 'error');
+        }
+    });
+
+    document.getElementById('reg-email').addEventListener('input', () => {
+        markOtpVerified(false);
+    });
+
+    document.querySelector('.login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value;
+
+        try {
+            const data = await postJSON(`${API_BASE}/login`, { email, password });
+            saveAuthData(data);
+            setStatus('Login successful!', 'success');
+            goToPanelByRole(data);
+        } catch (err) {
+            setStatus('Login failed: ' + err.message, 'error');
+        }
+    });
+
+    document.querySelector('.register-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (!otpVerified) {
+            return setStatus('OTP verification required', 'error');
+        }
+
+        const password = document.getElementById('reg-password').value;
+        if (password.length < 8) {
+            return setStatus('Password must be at least 8 chars', 'error');
+        }
+
+        const lic = document.getElementById('licenseNumber').value.trim();
+        const bike = document.getElementById('bikeNumber').value.trim();
+
+        if ((lic || bike) && !(lic && bike)) {
+            return setStatus('Driver registration requires license number and bike number plate', 'error');
+        }
+
+        const payload = {
+            name: document.getElementById('reg-name').value.trim(),
+            phone: document.getElementById('reg-phone').value.trim(),
+            email: document.getElementById('reg-email').value.trim(),
+            password: password,
+            studentId: document.getElementById('studentId').value.trim(),
+            department: document.getElementById('department').value.trim()
+        };
+
+        if (lic) payload.licenseNumber = lic;
+        if (bike) payload.bikeNumber = bike;
+
+        try {
+            const data = await postJSON(`${API_BASE}/register`, payload);
+            saveAuthData(data);
+            setStatus('Registration successful!', 'success');
+            goToPanelByRole(data);
+        } catch (err) {
+            setStatus('Registration failed: ' + err.message, 'error');
+        }
+    });
+
+    document.querySelectorAll('.toggle-pass').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.getElementById(btn.getAttribute('data-target'));
+            const isPassword = input.type === 'password';
+
+            input.type = isPassword ? 'text' : 'password';
+            btn.textContent = isPassword ? '🙈' : '👁';
+            btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+        });
+    });
+
+    if (location.protocol === 'https:' && !API_BASE.startsWith('https:')) {
+        setStatus('⚠️ HTTPS পেজে HTTP API কল ব্লক হতে পারে।', 'error');
+    }
+</script>
+</body>
+</html>

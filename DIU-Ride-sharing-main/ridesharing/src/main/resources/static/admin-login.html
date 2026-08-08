@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Login • RideSharing</title>
+  <style>
+    :root {
+      --primary:#2d4463;
+      --primary2:#3a5785;
+      --muted:#6b7280;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      font-family:'Segoe UI', Arial, sans-serif;
+      font-size:20px;
+      background:url("/image/diu.jpg") center/cover fixed no-repeat;
+      color:#0f172a;
+    }
+    .nav {
+      position:sticky; top:0; z-index:5;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 22px;
+      background:rgba(45,68,99,.95);
+      color:#fff;
+      font-size:22px;
+      box-shadow:0 6px 14px rgba(0,0,0,.25);
+    }
+    .brand { font-weight:800; }
+    .wrap { max-width:520px; margin:60px auto; padding:14px; }
+    .card {
+      background:#eaf3fb;
+      border:1px solid #d7e6f3;
+      border-radius:18px;
+      padding:28px;
+      box-shadow:0 10px 28px rgba(0,0,0,.18);
+    }
+    .card h3 {
+      margin:0 0 20px;
+      text-align:center;
+      font-size:28px;
+      color:var(--primary);
+    }
+    label {
+      display:block;
+      margin:12px 0 6px;
+      font-weight:700;
+      font-size:18px;
+    }
+    input {
+      width:100%;
+      padding:16px;
+      border:1px solid #cfd8e3;
+      border-radius:10px;
+      font-size:18px;
+      background:#fff;
+    }
+    input:focus {
+      outline:none;
+      box-shadow:0 0 0 3px #c7d2fe;
+    }
+    .row { display:flex; gap:10px; margin-top:20px; }
+    .btn {
+      border:0;
+      border-radius:10px;
+      padding:16px;
+      font-weight:800;
+      cursor:pointer;
+      color:#fff;
+      background:#ff6b6b;
+      width:100%;
+      font-size:18px;
+    }
+    .btn.primary {
+      background:linear-gradient(90deg,var(--primary),var(--primary2));
+    }
+    #status {
+      margin-top:14px;
+      font-size:17px;
+      color:var(--muted);
+    }
+    #status.err {
+      color:#dc2626;
+      font-weight:700;
+    }
+    #status.ok {
+      color:#16a34a;
+      font-weight:700;
+    }
+  </style>
+</head>
+<body>
+<div class="nav">
+  <div class="brand">RideSharing • Admin Login</div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <h3>Admin Sign in</h3>
+
+    <label>Email</label>
+    <input id="email" type="email" value="ridesharingdiu241@gmail.com" autocomplete="username"/>
+
+    <label>Password</label>
+    <input id="password" type="password" placeholder="password" autocomplete="current-password"/>
+
+    <div class="row">
+      <button class="btn primary" id="loginBtn" type="button">Login</button>
+    </div>
+
+    <div id="status"></div>
+  </div>
+</div>
+
+<script>
+  const AUTH_BASE = `${location.origin}/api/auth`;
+  const $ = s => document.querySelector(s);
+
+  function setStatus(message, type = '') {
+    const s = $("#status");
+    s.textContent = message || '';
+    s.className = type || '';
+  }
+
+  async function postJSON(url, body) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const text = await response.text();
+    let data = null;
+
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (e) {}
+
+    if (!response.ok) {
+      throw new Error(data?.message || text || ('HTTP ' + response.status));
+    }
+
+    return data;
+  }
+
+  async function login() {
+    setStatus('Signing in...', '');
+
+    const email = $('#email').value.trim();
+    const password = $('#password').value;
+
+    if (!email || !password) {
+      setStatus('Enter email & password', 'err');
+      return;
+    }
+
+    try {
+      const res = await postJSON(`${AUTH_BASE}/login`, { email, password });
+
+      const token = res?.token || res?.accessToken;
+      if (!token) {
+        throw new Error('No token in response');
+      }
+
+      localStorage.setItem('token', token);
+
+      let role = res?.role || '';
+      if (typeof role === 'string' && role.startsWith('ROLE_')) {
+        role = role.replace('ROLE_', '');
+      }
+
+      localStorage.setItem('role', role);
+      localStorage.setItem('email', res?.email || '');
+      localStorage.setItem('name', res?.name || '');
+
+      if (role === 'ADMIN') {
+        setStatus('Login successful! Redirecting...', 'ok');
+        window.location.href = '/admin-panel.html';
+      } else {
+        setStatus('Not an admin account', 'err');
+      }
+
+    } catch (e) {
+      setStatus(e.message || 'Login failed', 'err');
+    }
+  }
+
+  $('#loginBtn').addEventListener('click', login);
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') login();
+  });
+
+  (function () {
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+
+    if (token && role === 'ADMIN') {
+      window.location.href = '/admin-panel.html';
+    }
+  })();
+</script>
+</body>
+</html>

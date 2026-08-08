@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Rider • RideSharing</title>
+    <style>
+        :root{ --nav:#2d4463; --light:#e9f2ff; --ok:#10b981; --warn:#b13b00; --muted:#6b7280; }
+        *{box-sizing:border-box}
+        body{
+          margin:0; font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif; font-size:18px;
+          background:#f5f7fb url("/image/diu.jpg") center/cover no-repeat;
+        }
+        .navbar{
+          background:var(--nav); color:#fff; padding:14px 22px;
+          display:flex; align-items:center; justify-content:space-between;
+          box-shadow:0 4px 14px rgba(0,0,0,.25);
+          position:sticky; top:0; z-index:2;
+        }
+        .tabs{ display:flex; gap:12px; flex-wrap:wrap }
+        .tabs button{
+          background:#445d82; color:#fff; border:0; border-radius:999px;
+          padding:8px 16px; font-weight:800; cursor:pointer;
+        }
+        .tabs .active{ background:#fff; color:var(--nav); }
+        .btn{ border:0; border-radius:10px; padding:12px 18px; cursor:pointer; font-weight:800; background:var(--nav); color:#fff; }
+        .btn.warn{ background:var(--warn); }
+        .btn.ghost{ background:#eef2ff; color:#1f2937; border:1px solid #e5e7eb }
+        .btn.chat{ background:#2d4463 !important; color:#fff !important; }
+        .container{ max-width:1000px; margin:28px auto; padding:0 18px; }
+        .section{ margin-top:18px; padding:20px; border-radius:16px; background:var(--light); box-shadow:0 6px 18px rgba(0,0,0,.12); }
+        .muted{ color:var(--muted); font-size:15px }
+        table{ width:100%; border-collapse:collapse; margin-top:12px; }
+        th,td{ border:1px solid #d6d6d6; padding:10px; text-align:left; }
+        th{ background:var(--nav); color:#fff; }
+        #status{ margin-top:10px; }
+        .ok{ color:#0b5f3e; }
+        .err{ color:#8a0d0d; }
+        .badge{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:800; font-size:12px }
+        .badge.live{ background:#ecfdf5; color:#065f46 }
+
+        .backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:99999; }
+        .backdrop.show{ display:flex !important; }
+        .modalBox{ background:#fff; padding:20px; border-radius:14px; width:min(520px,90vw); box-shadow:0 20px 50px rgba(0,0,0,.35); }
+        .modalBox h3{ margin:0 0 10px; }
+
+        #chatBox{ max-height:320px; overflow-y:auto; border:1px solid #ddd; padding:10px; margin-bottom:10px; background:#f9fafb; font-size:15px }
+        #chatBox .row{ display:flex; margin:6px 0 }
+        #chatBox .bubble{ padding:8px 12px; border-radius:12px; max-width:78%; }
+        #chatBox .me{ justify-content:flex-end }
+        #chatBox .me .bubble{ background:#e9efff; color:#1f2a44; text-align:right }
+        #chatBox .other .bubble{ background:#ffffff; border:1px solid #e5e7eb; color:#333 }
+        #chatInput{ width:100%; padding:10px; border:1px solid #ccc; border-radius:8px }
+
+        #tab-offers .section select{
+          height:48px; padding:0 12px; font-size:16px; border-radius:10px; line-height:normal;
+        }
+
+        @media (max-width:480px){
+          body{ font-size:16px }
+          .tabs button{ padding:6px 12px; font-size:14px }
+          .btn{ padding:10px 12px; font-size:14px }
+          table th, table td{ font-size:14px; padding:8px }
+          .section{ padding:16px }
+        }
+    </style>
+</head>
+<body>
+<div class="navbar">
+    <div>RideSharing • Rider</div>
+    <div class="tabs">
+        <button class="active" data-tab="offers" type="button">Offers</button>
+        <button data-tab="actions" type="button">Actions</button>
+        <button data-tab="history" type="button">History</button>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+        <div id="activeChip"></div>
+        <div id="whoami">Loading…</div>
+        <button class="btn warn" id="logoutBtn">Logout</button>
+    </div>
+</div>
+
+<div class="container">
+    <div id="status"></div>
+
+    <div id="tab-offers">
+        <div class="section">
+            <h3>Filter Offers</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+                <select id="fPickup">
+                    <option value="">Pickup (any)</option>
+                    <option>DSC</option><option>Uttara</option><option>Banani</option><option>Gulshan</option><option>Mirpur</option>
+                </select>
+                <select id="fDrop">
+                    <option value="">Dropoff (any)</option>
+                    <option>DSC</option><option>Uttara</option><option>Banani</option><option>Gulshan</option><option>Mirpur</option>
+                </select>
+            </div>
+            <button class="btn" id="applyBtn" style="margin-top:12px">Apply</button>
+        </div>
+
+        <div class="section">
+            <h3>Available Driver Offers</h3>
+            <table id="offersTbl">
+                <thead><tr><th>Driver</th><th>Pickup</th><th>Dropoff</th><th>Fare</th><th>Driver Phone</th><th>Actions</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-actions" style="display:none">
+        <div class="section">
+            <h3>Current / Last Ride</h3>
+            <div id="currentBox" class="muted">No current ride.</div>
+        </div>
+
+        <div class="section">
+            <h3>Cancel / Force Complete</h3>
+            <div style="display:flex; gap:10px; flex-wrap:wrap">
+                <button class="btn warn" id="cancelSelfBtn">Cancel My Active Ride</button>
+                <button class="btn" id="forceCompleteBtn">Force Complete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-history" style="display:none">
+        <div class="section">
+            <h3>Ride History</h3>
+            <table id="historyTbl">
+                <thead><tr><th>ID</th><th>Driver</th><th>Pickup</th><th>Drop</th><th>Fare</th><th>Status</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="bigNotify" class="backdrop" role="alertdialog" aria-live="assertive" aria-atomic="true" aria-modal="true">
+    <div class="modalBox">
+        <h3 id="bnTitle">Driver Confirmed 🎉</h3>
+        <div id="bnMeta" class="muted"></div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px">
+            <a id="bnCall" class="btn ghost" href="#" style="display:none">📞Call</a>
+            <button id="bnChat" class="btn chat" type="button" style="display:none">💬 Open Chat</button>
+            <button id="bnView" class="btn" type="button">View Details</button>
+            <button id="bnOk" class="btn" type="button">OK</button>
+        </div>
+    </div>
+</div>
+
+<div id="chatModal" class="backdrop" aria-modal="true">
+    <div class="modalBox">
+        <h3>💬 Chat</h3>
+        <div id="chatBox"></div>
+        <div style="display:flex; gap:8px; margin-top:10px">
+            <input id="chatInput" type="text" placeholder="Type a message…"/>
+            <button class="btn" id="chatSend">Send</button>
+        </div>
+        <div style="text-align:right; margin-top:8px">
+            <button class="btn ghost" id="chatClose">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const AUTH_BASE  = `${location.origin}/api/auth`;
+    const RIDES_BASE = `${location.origin}/api/rides`;
+    const CHAT_BASE  = `${location.origin}/api/chat`;
+
+    const $ = id => document.getElementById(id);
+
+    function clearAuthData(){
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('email');
+      localStorage.removeItem('name');
+    }
+
+    const setStatus=(m,t='')=>{ const s=$('status'); s.className=t; s.textContent=m||''; };
+    const authHeader=()=>{ const t=localStorage.getItem('token'); return t?{Authorization:'Bearer '+t}:{}; };
+
+    async function getJSON(u){
+      const r=await fetch(u,{headers:authHeader()});
+      const t=await r.text();
+      let d=null;
+      try{d=t?JSON.parse(t):null;}catch{}
+      if(!r.ok) throw new Error(d?.message||t||('HTTP '+r.status));
+      return d;
+    }
+
+    async function put(u){
+      const r=await fetch(u,{method:'PUT',headers:authHeader()});
+      const t=await r.text();
+      let d=null;
+      try{d=t?JSON.parse(t):null;}catch{}
+      if(!r.ok) throw new Error(d?.message||t||('HTTP '+r.status));
+      return d;
+    }
+
+    async function postJSON(u,b){
+      const r=await fetch(u,{
+        method:'POST',
+        headers:{'Content-Type':'application/json',...authHeader()},
+        body:JSON.stringify(b)
+      });
+      const t=await r.text();
+      let d=null;
+      try{d=t?JSON.parse(t):null;}catch{}
+      if(!r.ok) throw new Error(d?.message||t||('HTTP '+r.status));
+      return d;
+    }
+
+    document.querySelectorAll('.tabs button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
+        btn.classList.add('active');
+        const k = btn.getAttribute('data-tab');
+        $('tab-offers').style.display  = (k==='offers') ? 'block':'none';
+        $('tab-actions').style.display = (k==='actions')? 'block':'none';
+        $('tab-history').style.display = (k==='history')? 'block':'none';
+      });
+    });
+
+    function openBackdrop(b){ b.classList.add('show'); trapFocus(b); }
+    function closeBackdrop(b){ releaseTrap(b); b.classList.remove('show'); }
+
+    function trapFocus(el){
+      const sel='a[href],button,textarea,input,select,[tabindex]:not([tabindex="-1"])';
+      const nodes=[...el.querySelectorAll(sel)].filter(n=>!n.disabled);
+      if(!nodes.length) return;
+      const first=nodes[0], last=nodes[nodes.length-1];
+      function onKey(e){
+        if(e.key==='Escape'){ e.preventDefault(); return; }
+        if(e.key==='Tab'){
+          if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+          else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+        }
+      }
+      el._handler=onKey;
+      document.addEventListener('keydown', onKey);
+      setTimeout(()=>first.focus(),10);
+    }
+
+    function releaseTrap(el){
+      if(el._handler){
+        document.removeEventListener('keydown', el._handler);
+        delete el._handler;
+      }
+    }
+
+    let prevRideSig = null;
+    let latestRide  = null;
+    let meUser      = null;
+
+    let chatUserScrolledUp = false;
+    let lastChatNotifiedId = null;
+
+    const isNearBottom = (el)=> (el.scrollHeight - (el.scrollTop + el.clientHeight)) < 40;
+
+    function attachChatScrollGuard(){
+      const el = $('chatBox');
+      if(!el || el._guarded) return;
+      el._guarded=true;
+      el.addEventListener('scroll', ()=>{
+        chatUserScrolledUp = !isNearBottom(el);
+      });
+    }
+
+    function renderChatSmart(renderFn){
+      const el = $('chatBox');
+      if(!el) return renderFn();
+      const shouldStick = isNearBottom(el) && !chatUserScrolledUp;
+      renderFn();
+      if(shouldStick){ el.scrollTop = el.scrollHeight; }
+    }
+
+    function msUntilForceAllowed(ride){
+      const THIRTY_MIN = 30 * 60 * 1000;
+      if(!ride || !ride.startTime) return Infinity;
+      const started = new Date(ride.startTime).getTime();
+      return THIRTY_MIN - (Date.now() - started);
+    }
+
+    function formatCountdown(ms){
+      const s = Math.ceil(ms/1000);
+      const m = Math.floor(s/60);
+      const sec = s % 60;
+      return `${m}m ${sec}s`;
+    }
+
+    function updateForceButton(ride){
+      const btn = $('forceCompleteBtn');
+      if(!btn) return;
+      if(btn._timer){ clearInterval(btn._timer); btn._timer=null; }
+
+      if(!ride || ride.status!=='IN_PROGRESS'){
+        btn.disabled = true;
+        btn.textContent = 'Force Complete';
+        return;
+      }
+
+      const tick = ()=>{
+        const ms = msUntilForceAllowed(ride);
+        if(ms <= 0){
+          btn.disabled = false;
+          btn.textContent = 'Force Complete';
+          if(btn._timer){ clearInterval(btn._timer); btn._timer=null; }
+        }else{
+          btn.disabled = true;
+          btn.textContent = `Force Complete (in ${formatCountdown(ms)})`;
+        }
+      };
+      tick();
+      btn._timer = setInterval(tick, 1000);
+    }
+
+    (async function init(){
+      try{
+        const me=await getJSON(`${AUTH_BASE}/me`);
+        meUser = me;
+
+        if(!me || String(me.role).toUpperCase()!=='RIDER'){
+          clearAuthData();
+          alert('Please login as RIDER');
+          location.href='/auth.html';
+          return;
+        }
+
+        localStorage.setItem('role', me.role || '');
+        localStorage.setItem('email', me.email || '');
+        localStorage.setItem('name', me.name || '');
+
+        $('whoami').textContent = `${me.name||me.email} (Rider • ${me.studentId||'-'})`;
+      }catch(e){
+        clearAuthData();
+        alert('Session expired. Please login again.');
+        location.href='/auth.html';
+        return;
+      }
+
+      await loadOffers();
+      await refreshLatest();
+      await loadHistory();
+      setInterval(refreshLatest, 7000);
+      setInterval(chatHeartbeat, 3000);
+    })();
+
+    function setActiveChip(ride){
+      const chip = document.getElementById('activeChip');
+      if(ride && ride.status==='IN_PROGRESS'){
+        chip.innerHTML = `<span class="badge live"><span style="width:8px;height:8px;background:var(--ok);border-radius:999px;display:inline-block"></span> In progress</span>`;
+      }else{
+        chip.innerHTML = '';
+      }
+    }
+
+    function renderDriverOnly(ride){
+      if(!ride) return '<div class="muted">No data.</div>';
+      return `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><b>Driver Name:</b> ${ride.driverName||'-'}</div>
+          <div><b>Driver Student ID:</b> ${ride.driverStudentId||'-'}</div>
+          <div><b>Driver Email:</b> ${ride.driverEmail||'-'}</div>
+          <div><b>Driver Phone:</b> ${ride.driverPhone||'-'}</div>
+          <div><b>Bike No:</b> ${ride.bikeNumber || ride.driverBikeNumber || '-'}</div>
+          <div style="grid-column:1/-1"><b>Route:</b> ${ride.pickupLocation} → ${ride.dropoffLocation}</div>
+          <div style="grid-column:1/-1"><b>Fare:</b> ৳${ride.fare}</div>
+          <div style="grid-column:1/-1"><b>Status:</b> ${ride.status}</div>
+        </div>`;
+    }
+
+    function renderActionsTab(ride){
+      const box = $('currentBox');
+      if(!ride){ box.innerHTML='No current ride.'; return; }
+
+      if(ride.status==='BOOKED'){
+        box.innerHTML = `
+          <div><b>Status:</b> BOOKED (Driver not started yet)</div>
+          <div style="margin-top:8px">${renderDriverOnly(ride)}</div>
+          <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap">
+            <button class="btn chat" id="actChat">💬 Chat</button>
+            <a class="btn ghost" id="actCall" ${ride.driverPhone?`href="tel:${ride.driverPhone}"`:'href="#"'}>Call</a>
+          </div>`;
+        const chatBtn = document.getElementById('actChat');
+        if(chatBtn) chatBtn.onclick = ()=> openChatFromUI();
+      } else if(ride.status==='IN_PROGRESS'){
+        box.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div style="min-width:280px">${renderDriverOnly(ride)}</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap">
+              <button class="btn chat" id="actChat2">💬 Chat</button>
+              <a class="btn ghost" id="actCall2" ${ride.driverPhone?`href="tel:${ride.driverPhone}"`:'href="#"'}>Call</a>
+            </div>
+          </div>`;
+        const chat2=document.getElementById('actChat2');
+        if(chat2) chat2.onclick=()=> openChatFromUI();
+      } else {
+        box.innerHTML='<div class="muted">No current ride.</div>';
+      }
+    }
+
+    async function refreshLatest(){
+      try{
+        const latest = await getJSON(`${RIDES_BASE}/mine/latest`);
+        latestRide = latest || null;
+
+        setActiveChip(latestRide);
+        renderActionsTab(latestRide);
+        updateForceButton(latestRide);
+
+        const cancelBtn = $('cancelSelfBtn');
+        if(cancelBtn){
+          cancelBtn.style.display = (latestRide && latestRide.status==='IN_PROGRESS') ? 'none' : 'inline-block';
+        }
+
+        const sig = latest ? `${latest.id}|${latest.status}` : null;
+        const becameInProgress = latest && latest.status==='IN_PROGRESS' && sig !== prevRideSig;
+
+        if(becameInProgress){
+          const meta = `
+            <b>${latest.driverName||('Driver '+(latest.driverStudentId||''))}</b><br/>
+            Student ID: <b>${latest.driverStudentId||'-'}</b> • Email: <b>${latest.driverEmail||'-'}</b><br/>
+            Bike No: <b>${latest.bikeNumber || latest.driverBikeNumber || '-'}</b><br/>
+            Route: ${latest.pickupLocation} → ${latest.dropoffLocation} • Fare: ৳${latest.fare}
+            ${latest.driverPhone?`<br/>Phone: <b>${latest.driverPhone}</b>`:''}
+          `;
+          $('bnTitle').textContent = 'Driver Confirmed 🎉';
+          $('bnMeta').innerHTML = meta;
+
+          const callBtn = $('bnCall');
+          if(latest.driverPhone){
+            callBtn.style.display='inline-block';
+            callBtn.href=`tel:${latest.driverPhone}`;
+          } else {
+            callBtn.style.display='none';
+            callBtn.href='#';
+          }
+
+          $('bnChat').style.display='inline-block';
+          $('bnChat').onclick = ()=> openChatFromUI();
+
+          $('bnView').style.display = 'inline-block';
+          $('bnView').onclick = ()=>{
+            $('bnTitle').textContent='Driver Details';
+            $('bnMeta').innerHTML=renderDriverOnly(latest);
+            $('bnView').style.display='none';
+          };
+          $('bnOk').onclick = ()=> closeBackdrop($('bigNotify'));
+          openBackdrop($('bigNotify'));
+        }
+
+        prevRideSig = sig;
+      }catch(e){
+        console.error('refreshLatest failed:', e);
+      }
+    }
+
+    async function loadOffers(){
+      const p = $('fPickup').value.trim();
+      const d = $('fDrop').value.trim();
+      const qs = new URLSearchParams();
+      if(p) qs.set('pickup',p);
+      if(d) qs.set('dropoff',d);
+
+      const tbody = document.querySelector('#offersTbl tbody');
+      tbody.innerHTML = '<tr><td colspan="6">Loading…</td></tr>';
+
+      try{
+        const offers = await getJSON(`${RIDES_BASE}/offers${qs.toString()?('?'+qs.toString()):''}`);
+        tbody.innerHTML='';
+
+        if(!offers.length){
+          tbody.innerHTML='<tr><td colspan="6">No offers.</td></tr>';
+          return;
+        }
+
+        for(const r of offers){
+          const phoneCell = r.driverPhone ? `<a href="tel:${r.driverPhone}">${r.driverPhone}</a>` : '-';
+          const who = (r.driverName ? r.driverName+' • ' : '') + (r.driverStudentId || ('#'+(r.driverId||'')));
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            `<td>${who}</td>
+             <td>${r.pickupLocation}</td>
+             <td>${r.dropoffLocation}</td>
+             <td>${r.fare} ৳</td>
+             <td>${phoneCell}</td>
+             <td>
+               <button class="btn view" data-id="${r.id}">View</button>
+               <button class="btn book" data-id="${r.id}">Book</button>
+             </td>`;
+          tbody.appendChild(tr);
+        }
+
+        tbody.querySelectorAll('button.view').forEach(btn=>{
+          btn.onclick = async (e)=>{
+            const id = e.currentTarget.getAttribute('data-id');
+            const data = (await getJSON(`${RIDES_BASE}/offers${qs.toString()?('?'+qs.toString()):''}`)).find(x=>x.id==id);
+            if(data){
+              $('bnTitle').textContent='Driver Details';
+              $('bnMeta').innerHTML=renderDriverOnly(data);
+              $('bnView').style.display='none';
+              $('bnChat').style.display='none';
+              $('bnCall').style.display=data.driverPhone?'inline-block':'none';
+              if(data.driverPhone) $('bnCall').href=`tel:${data.driverPhone}`;
+              $('bnOk').onclick=()=>closeBackdrop($('bigNotify'));
+              openBackdrop($('bigNotify'));
+            }
+          };
+        });
+
+        tbody.querySelectorAll('button.book').forEach(btn=>{
+          btn.onclick = async (e)=>{
+            const id = e.currentTarget.getAttribute('data-id');
+            try{
+              const data = await put(`${RIDES_BASE}/${id}/book`);
+              setStatus(`Booked ✅ (Driver: ${data.driverStudentId||data.driverId||'-'})`,'ok');
+              await loadOffers();
+              await refreshLatest();
+            }catch(err){
+              setStatus(err.message||'Book failed','err');
+            }
+          };
+        });
+      }catch(err){
+        setStatus(err.message||'Load failed','err');
+      }
+    }
+
+    $('applyBtn').addEventListener('click', loadOffers);
+
+    $('logoutBtn').addEventListener('click', ()=>{
+      clearAuthData();
+      location.href='/auth.html';
+    });
+
+    $('cancelSelfBtn').addEventListener('click', async ()=>{
+      try{
+        const data = await put(`${RIDES_BASE}/cancel/self`);
+        setStatus(`Cancelled ✅ (Ride #${data.id})`,'ok');
+        await loadOffers();
+        await refreshLatest();
+      }catch(err){
+        setStatus(err.message||'Cancel failed','err');
+      }
+    });
+
+    $('forceCompleteBtn').addEventListener('click', async ()=>{
+      if(latestRide && latestRide.status==='IN_PROGRESS'){
+        const ms = msUntilForceAllowed(latestRide);
+        if(ms > 0){
+          setStatus(`Force-complete allowed after ${formatCountdown(ms)}.`, 'err');
+          return;
+        }
+      }else{
+        setStatus('Force-complete only after the ride has started.', 'err');
+        return;
+      }
+
+      try{
+        const data = await put(`${RIDES_BASE}/rider/force-complete`);
+        setStatus(`Ride completed ✅ (Force-complete) #${data.id}`,'ok');
+        await loadOffers();
+        await refreshLatest();
+      }catch(err){
+        setStatus(err.message||'Force-complete failed','err');
+      }
+    });
+
+    async function loadHistory(){
+      const tbody=document.querySelector('#historyTbl tbody');
+      tbody.innerHTML='';
+      try{
+        const list=await getJSON(`${RIDES_BASE}/rider/history`);
+        if(!list.length){
+          tbody.innerHTML='<tr><td colspan="6">No history.</td></tr>';
+          return;
+        }
+        list.forEach(r=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML=`<td>${r.id}</td><td>${r.driverName||'-'}</td><td>${r.pickupLocation}</td><td>${r.dropoffLocation}</td><td>${r.fare} ৳</td><td>${r.status}</td>`;
+          tbody.appendChild(tr);
+        });
+      }catch(e){
+        console.error('loadHistory failed:', e);
+      }
+    }
+
+    let chatPollTimer=null;
+    function startChatPoll(){
+      if(chatPollTimer) clearInterval(chatPollTimer);
+      chatPollTimer=setInterval(loadChat,3000);
+    }
+
+    function stopChatPoll(){
+      if(chatPollTimer) {
+        clearInterval(chatPollTimer);
+        chatPollTimer=null;
+      }
+    }
+
+    function extractText(m){ return m?.message ?? m?.content ?? m?.text ?? m?.body ?? ''; }
+
+    function openChatFromUI(){
+      if(!latestRide) return;
+      openBackdrop($('chatModal'));
+      chatUserScrolledUp = false;
+      loadChat();
+      startChatPoll();
+      attachChatScrollGuard();
+    }
+
+    async function loadChat(){
+      if(!latestRide) return;
+      try{
+        const msgs = await getJSON(`${CHAT_BASE}/${latestRide.id}/messages`);
+        renderChatSmart(()=>{
+          const box = $('chatBox');
+          box.innerHTML='';
+          const otherName = latestRide?.driverName || 'Driver';
+
+          msgs.forEach(m=>{
+            const senderId   = m.senderId ?? m.senderID ?? m.userId ?? m.uid;
+            const senderRole = (m.senderRole || '').toUpperCase();
+            const text       = extractText(m);
+
+            const isMe = String(senderId) === String(meUser?.id || '');
+
+            const row = document.createElement('div');
+            row.className='row '+(isMe?'me':'other');
+
+            const bubble=document.createElement('div');
+            bubble.className='bubble';
+            bubble.textContent = (isMe ? 'You: ' : ((senderRole === 'DRIVER' ? otherName : 'Rider') + ': ')) + text;
+
+            row.appendChild(bubble);
+            box.appendChild(row);
+          });
+        });
+      }catch(e){
+        console.error('loadChat failed:', e);
+      }
+    }
+
+    $('chatSend').onclick = async ()=>{
+      const txt=$('chatInput').value.trim();
+      if(!txt || !latestRide) return;
+
+      try{
+        await postJSON(`${CHAT_BASE}/${latestRide.id}/send`, {
+          senderId: meUser?.id,
+          senderRole: 'RIDER',
+          message: txt
+        });
+        $('chatInput').value='';
+        chatUserScrolledUp = false;
+        await loadChat();
+      }catch(e){
+        alert('Message send failed: ' + (e.message || 'Unknown error'));
+        console.error('chatSend failed:', e);
+      }
+    };
+
+    $('chatInput').addEventListener('keydown', async (e)=>{
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        $('chatSend').click();
+      }
+    });
+
+    $('chatClose').onclick = ()=>{
+      closeBackdrop($('chatModal'));
+      stopChatPoll();
+    };
+
+    async function chatHeartbeat(){
+      try{
+        if(document.getElementById('chatModal').classList.contains('show')) return;
+
+        const latest = await getJSON(`${RIDES_BASE}/mine/latest`);
+        if(!latest) return;
+        latestRide = latest;
+
+        const msgs = await getJSON(`${CHAT_BASE}/${latest.id}/messages`);
+        if(!Array.isArray(msgs)||!msgs.length) return;
+
+        const last = msgs[msgs.length-1];
+        const lastIdSig = (last.id ?? last.sentAt ?? JSON.stringify(last)).toString();
+        const lastSender = last.senderId ?? null;
+
+        if(String(lastSender)!==String(meUser?.id||'') && lastChatNotifiedId !== lastIdSig){
+          lastChatNotifiedId = lastIdSig;
+          const senderName = latest.driverName || 'Driver';
+          const text = extractText(last);
+
+          $('bnTitle').textContent='New chat message';
+          $('bnMeta').innerHTML = `<b>${senderName}</b>: ${text}`;
+          $('bnCall').style.display = 'none';
+          $('bnView').style.display = 'none';
+          $('bnChat').style.display = 'inline-block';
+          $('bnChat').onclick = ()=> openChatFromUI();
+          $('bnOk').onclick   = ()=> closeBackdrop($('bigNotify'));
+          openBackdrop($('bigNotify'));
+        }
+      }catch(e){
+        console.error('chatHeartbeat failed:', e);
+      }
+    }
+
+    document.getElementById('bnChat').onclick = ()=> openChatFromUI();
+</script>
+</body>
+</html>

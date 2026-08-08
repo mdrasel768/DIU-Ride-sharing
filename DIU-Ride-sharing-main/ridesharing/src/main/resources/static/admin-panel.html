@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Admin • RideSharing</title>
+    <style>
+        :root{
+          --primary:#2d4463;
+          --primary2:#3a5785;
+          --muted:#6b7280;
+          --surface:#eaf3fb;
+          --surfaceBorder:#d7e6f3;
+        }
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{
+          margin:0; font-family:'Segoe UI', Arial, sans-serif; font-size:18px;
+          background:url("/image/diu.jpg") center/cover fixed no-repeat; color:#0f172a;
+        }
+
+        .nav{
+          position:sticky; top:0; z-index:5;
+          display:flex; align-items:center; justify-content:space-between; gap:12px;
+          padding:16px 22px; color:#fff;
+          background:rgba(45,68,99,.95);
+          box-shadow:0 6px 14px rgba(0,0,0,.25);
+          backdrop-filter:saturate(120%) blur(2px);
+        }
+        .brand{font-weight:800; letter-spacing:.3px}
+
+        .btn{
+          border:0; border-radius:12px; padding:12px 16px; font-weight:800;
+          cursor:pointer; color:#fff; transition:transform .15s ease, box-shadow .15s ease;
+          display:inline-flex; align-items:center; justify-content:center; gap:8px;
+        }
+        .btn:active{transform:scale(.98)}
+        .btn.primary{background:linear-gradient(90deg,var(--primary),var(--primary2))}
+        .btn.ghost{background:#eef2ff; color:var(--primary); border:1px solid #e5e7eb}
+        .btn.warn{background:linear-gradient(45deg,#ff6b6b,#c0392b)}
+        .btn.logout{background:linear-gradient(45deg,#e74c3c,#c0392b); color:#fff;}
+
+        .wrap{max-width:1100px; margin:26px auto; padding:14px}
+        .card{
+          background:var(--surface); border:1px solid var(--surfaceBorder);
+          border-radius:18px; padding:22px; box-shadow:0 10px 28px rgba(0,0,0,.18);
+        }
+        .card h3{margin:0 0 14px; text-align:center; color:var(--primary)}
+
+        #status{margin:8px 4px 14px; color:#334155; font-size:16px}
+
+        table{width:100%; border-collapse:collapse; background:#fff; border-radius:16px; overflow:hidden}
+        th,td{padding:14px 12px; border:1px solid #e7ecf6; text-align:left; vertical-align:middle; font-size:17px; line-height:1.35}
+        th{background:linear-gradient(90deg,#2d4463,#3a5785); color:#fff}
+        tbody tr:hover{background:#f8fbff}
+    </style>
+</head>
+<body>
+<div class="nav">
+    <div class="brand">RideSharing • Admin</div>
+    <div style="display:flex; gap:10px; align-items:center">
+        <div id="whoami" style="font-weight:800">Loading…</div>
+        <button class="btn ghost" id="reloadBtn" type="button">Reload</button>
+        <button class="btn logout" id="logoutBtn" type="button">Logout</button>
+    </div>
+</div>
+
+<div class="wrap">
+    <div class="card">
+        <h3>User Management</h3>
+        <div id="status"></div>
+        <table id="usersTbl" aria-label="Users">
+            <thead>
+            <tr>
+                <th>Name</th>
+                <th>Student ID</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Role</th>
+                <th>Department</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr><td colspan="7">Loading…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const ADMIN_BASE = `${location.origin}/api/admin`;
+
+    const $ = s => document.querySelector(s);
+    const setStatus = (m)=>{ $('#status').textContent = m || ''; };
+
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+
+    if (!token || role !== 'ADMIN') {
+      location.href = '/auth.html?tab=login';
+    }
+
+    async function getJSON(u){
+      const r = await fetch(u, {
+        headers:{ Authorization:'Bearer ' + token }
+      });
+
+      const t = await r.text();
+      let d = null;
+
+      try { d = t ? JSON.parse(t) : null; } catch(e) {}
+
+      if(!r.ok) throw new Error(d?.message || t || ('HTTP ' + r.status));
+      return d;
+    }
+
+    async function patch(u){
+      const r = await fetch(u, {
+        method:'PATCH',
+        headers:{ Authorization:'Bearer ' + token }
+      });
+
+      const t = await r.text();
+      let d = null;
+
+      try { d = t ? JSON.parse(t) : null; } catch(e) {}
+
+      if(!r.ok) throw new Error(d?.message || t || ('HTTP ' + r.status));
+      return d;
+    }
+
+    async function loadUsers(){
+      setStatus('Loading users...');
+
+      try{
+        const page = await getJSON(`${ADMIN_BASE}/users?page=0&size=1000`);
+        const users = Array.isArray(page?.content) ? page.content : [];
+        paint(users);
+        setStatus(`Loaded ${users.length} user(s).`);
+      }catch(e){
+        paint([]);
+        setStatus(e.message || 'Failed to load users');
+      }
+    }
+
+    function paint(list){
+      const tb = $('#usersTbl tbody');
+      tb.innerHTML = '';
+
+      if(!list.length){
+        tb.innerHTML = '<tr><td colspan="7">No users found.</td></tr>';
+        return;
+      }
+
+      list.forEach(u=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${esc(u.name)}</td>
+          <td>${esc(u.studentId)}</td>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.phone)}</td>
+          <td>${esc(u.role)}</td>
+          <td>${esc(u.department)}</td>
+          <td>
+            <button class="btn ${u.status==='BANNED'?'primary':'warn'}"
+                    data-id="${u.id}" data-act="${u.status==='BANNED'?'unban':'ban'}">
+              ${u.status==='BANNED'?'Unban':'Ban'}
+            </button>
+          </td>`;
+        tb.appendChild(tr);
+      });
+
+      tb.querySelectorAll('button[data-act]').forEach(btn=>{
+        btn.onclick = async ()=>{
+          const id  = btn.getAttribute('data-id');
+          const act = btn.getAttribute('data-act');
+
+          try{
+            if(act === 'ban'){
+              await patch(`${ADMIN_BASE}/users/${id}/ban`);
+              setStatus(`User #${id} banned`);
+            } else {
+              await patch(`${ADMIN_BASE}/users/${id}/unban`);
+              setStatus(`User #${id} unbanned`);
+            }
+            await loadUsers();
+          }catch(e){
+            setStatus(e.message || 'Action failed');
+          }
+        };
+      });
+    }
+
+    function esc(s){
+      return (s ?? '').toString().replace(/[&<>"']/g, m => ({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[m]));
+    }
+
+    (async function init(){
+      const name = localStorage.getItem('name') || 'Admin';
+      const email = localStorage.getItem('email') || '';
+      const role = localStorage.getItem('role') || 'ADMIN';
+
+      $('#whoami').textContent = `${name || email} • ${role}`;
+      await loadUsers();
+    })();
+
+    $('#reloadBtn').onclick = loadUsers;
+
+    $('#logoutBtn').onclick = ()=>{
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('email');
+      localStorage.removeItem('name');
+      location.href = '/auth.html?tab=login';
+    };
+</script>
+</body>
+</html>

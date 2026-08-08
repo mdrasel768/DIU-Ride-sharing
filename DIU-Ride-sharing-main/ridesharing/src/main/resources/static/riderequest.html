@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ride Request</title>
+  <style>
+    *{box-sizing:border-box}
+    body{
+      font-family:Arial, sans-serif;
+      min-height:100vh; margin:0;
+      display:flex; justify-content:center; align-items:center;
+      background:#f8f9fa url("/image/rabbit.jpg") no-repeat center/cover;
+    }
+    .ride-form{
+      width:560px; max-width:95vw;
+      background:#fff8dc;
+      padding:20px; border-radius:10px;
+      box-shadow:0 10px 24px rgba(0,0,0,.12);
+    }
+    h1{margin:0 0 12px; text-align:center}
+    label{display:block; margin-top:12px; font-weight:600; font-size:16px}
+    select,button,input{
+      width:100%; padding:10px; margin-top:6px;
+      border:1px solid #cfcfcf; border-radius:8px; font-size:16px
+    }
+    button{background:#007bff; color:#fff; cursor:pointer; font-weight:700}
+    button:hover{background:#1c7d32}
+    .muted{color:#555; font-size:14px; margin:6px 0 0}
+    #farePreview{font-weight:700}
+    .ok{color:#0a7a0a; margin-top:10px}
+    .error{color:#b00020; margin-top:10px}
+    .toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px}
+    .toolbar a{font-size:14px; text-decoration:none}
+  </style>
+</head>
+<body>
+
+<div class="ride-form">
+  <div class="toolbar">
+    <span class="muted">Logged in as: <strong id="whoami">...</strong></span>
+    <a href="#" id="logoutBtn">Logout</a>
+  </div>
+  <h1>Request a Ride</h1>
+
+  <label for="pickup">Pickup Location</label>
+  <select id="pickup" required>
+    <option value="">-- Select Pickup --</option>
+    <option value="DSC">DSC</option>
+    <option value="Uttara">Uttara</option>
+    <option value="Banani">Banani</option>
+    <option value="Gulshan">Gulshan</option>
+    <option value="Mirpur">Mirpur</option>
+  </select>
+
+  <label for="dropoff">Dropoff Location</label>
+  <select id="dropoff" required>
+    <option value="">-- Select Dropoff --</option>
+    <option value="DSC">DSC</option>
+    <option value="Uttara">Uttara</option>
+    <option value="Banani">Banani</option>
+    <option value="Gulshan">Gulshan</option>
+    <option value="Mirpur">Mirpur</option>
+  </select>
+
+  <label>Estimated Fare</label>
+  <div id="farePreview" class="muted">—</div>
+
+  <button id="submitBtn" type="button">Submit Request</button>
+  <div id="msg"></div>
+</div>
+
+<script>
+  // ========= API bases (same-origin) =========
+  const AUTH_BASE  = window.AUTH_API_BASE  || `${location.origin}/api/auth`;
+  const RIDES_BASE = `${location.origin}/api/rides`;
+  const FARES_BASE = `${location.origin}/api/fares`;
+
+  // ========= helpers =========
+  const $ = id => document.getElementById(id);
+  const msgBox = $('msg');
+
+  function setMsg(text, type){
+    msgBox.className = type || '';
+    msgBox.textContent = text || '';
+  }
+
+  function authHeader(){
+    const t = localStorage.getItem('token');
+    return t ? { 'Authorization': 'Bearer ' + t } : {};
+  }
+
+  async function getJSON(url){
+    const res = await fetch(url, { headers: authHeader() });
+    const text = await res.text();
+    let data = null; try{ data = text ? JSON.parse(text) : null; }catch{}
+    if(!res.ok) throw new Error(data?.message || text || `HTTP ${res.status}`);
+    return data;
+  }
+
+  async function postJSON(url, body){
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', ...authHeader() },
+      body: JSON.stringify(body)
+    });
+    const text = await res.text();
+    let data = null; try{ data = text ? JSON.parse(text) : null; }catch{}
+    if(!res.ok) throw new Error(data?.message || text || `HTTP ${res.status}`);
+    return data;
+  }
+
+  // ========= state =========
+  let currentUser = null; // { id, email, role, name }
+
+  // ========= init: must be RIDER =========
+  (async function init(){
+    try{
+      currentUser = await getJSON(`${AUTH_BASE}/me`);
+      if(!currentUser || currentUser.role !== 'RIDER'){
+        alert('Only RIDER can request a ride.');
+        return location.href = '/';
+      }
+      $('whoami').textContent = currentUser.name || currentUser.email || 'Rider';
+    }catch(e){
+      alert('Please login as RIDER first.');
+      location.href = '/';
+    }
+
+    // Mixed-content heads up (optional)
+    if (location.protocol === 'https:' && !AUTH_BASE.startsWith('https:')) {
+      setMsg('⚠️ HTTPS পেজে HTTP API কল ব্লক হতে পারে।', 'error');
+    }
+  })();
+
+  // ========= fare preview =========
+  async function updateFare(){
+    const pickup = $('pickup').value;
+    const dropoff = $('dropoff').value;
+    const fareEl = $('farePreview');
+    fareEl.textContent = '—';
+    if(!pickup || !dropoff) return;
+
+    try{
+      const qs = new URLSearchParams({ pickup, dropoff }).toString();
+      const quote = await getJSON(`${FARES_BASE}/quote?${qs}`);
+      fareEl.textContent = `${quote} ৳`;
+    }catch{ fareEl.textContent = '—'; }
+  }
+  $('pickup').addEventListener('change', updateFare);
+  $('dropoff').addEventListener('change', updateFare);
+
+  // ========= submit ride =========
+  async function requestRide(){
+    setMsg('');
+    const btn = $('submitBtn');
+    if(!currentUser?.id){
+      alert('Not authenticated. Please login.');
+      return location.href = '/';
+    }
+    const pickup = $('pickup').value;
+    const dropoff = $('dropoff').value;
+
+    if(!pickup || !dropoff) return setMsg('Please select pickup and dropoff.', 'error');
+    if(pickup === dropoff)  return setMsg('Pickup and dropoff cannot be the same.', 'error');
+
+    btn.disabled = true;
+
+    // optional: get server quote first
+    let fare = null;
+    try{
+      const qs = new URLSearchParams({ pickup, dropoff }).toString();
+      fare = await getJSON(`${FARES_BASE}/quote?${qs}`);
+    }catch{}
+
+    const payload = {
+      pickupLocation:  pickup,
+      dropoffLocation: dropoff,
+      fare:            fare,
+      riderId:         currentUser.id
+    };
+
+    try{
+      const res = await postJSON(`${RIDES_BASE}/request`, payload);
+      setMsg('Ride requested successfully! ✅', 'ok');
+
+      // Save latest ride id -> Rider Panel "Cancel Latest" button works
+      if (res && res.id) {
+        localStorage.setItem('lastRideId', res.id);
+      }
+
+      // reset form
+      $('pickup').value = '';
+      $('dropoff').value = '';
+      updateFare();
+
+      // optional: go back to rider panel
+      // setTimeout(() => location.href = '/rider-panel.html', 600);
+    }catch(err){
+      console.error(err);
+      setMsg(err.message || 'Ride request failed', 'error');
+      if((err.message||'').includes('401')) setTimeout(()=>location.href='/', 800);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  $('submitBtn').addEventListener('click', requestRide);
+
+  // ========= logout =========
+  $('logoutBtn').addEventListener('click', (e)=>{
+    e.preventDefault();
+    localStorage.removeItem('token');
+    location.href = '/';
+  });
+</script>
+
+</body>
+</html>

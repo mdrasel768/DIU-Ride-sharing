@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Driver • RideSharing</title>
+  <style>
+    :root{ --primary:#2d4463; --primary2:#3a5785; --muted:#6b7280; }
+    *{box-sizing:border-box}
+    body{ margin:0; font-family:'Segoe UI', Arial, sans-serif; font-size:18px;
+          background:url("/image/diu.jpg") center/cover fixed no-repeat; color:#0f172a; }
+    .nav{ position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:12px;
+          padding:16px 22px; background:rgba(45,68,99,.95); color:#fff; box-shadow:0 6px 14px rgba(0,0,0,.25); }
+    .brand{font-weight:800}
+    .navlinks{display:flex; gap:12px; align-items:center}
+    .link{ color:#fff; background:rgba(255,255,255,.15); padding:8px 14px; border-radius:999px; font-weight:700; text-decoration:none; border:1px solid rgba(255,255,255,.2) }
+    .link.active{background:#fff; color:var(--primary)}
+    .btn{border:0; border-radius:10px; padding:12px 16px; font-weight:800; cursor:pointer; color:#fff; background:#ff6b6b}
+    .btn.primary{background:linear-gradient(90deg,var(--primary),var(--primary2))}
+    .btn.ghost{background:#eef2ff; color:var(--primary); border:1px solid #e5e7eb}
+    .btn.warn{background:linear-gradient(45deg,#ff6b6b,#c0392b)}
+    .btn.chat{ background:#2d4463 !important; color:#fff !important; }
+    .wrap{max-width:980px; margin:26px auto; padding:14px}
+    .card{ background:#eaf3fb; border:1px solid #d7e6f3; border-radius:18px; padding:22px; box-shadow:0 10px 28px rgba(0,0,0,.18); margin-bottom:16px; }
+    .card h3{margin:0 0 14px; text-align:center; color:var(--primary)}
+    label{display:block; margin:8px 0 6px; font-weight:700}
+    select,input{width:100%; padding:12px; border:1px solid #cfd8e3; border-radius:10px; font-size:17px; background:#fff}
+    select:focus,input:focus{outline:none; box-shadow:0 0 0 3px #c7d2fe}
+    table{width:100%; border-collapse:collapse; border-radius:12px; overflow:hidden; background:#fff}
+    th,td{padding:12px; border:1px solid #e7ecf6; text-align:left}
+    th{background:linear-gradient(90deg,#2d4463,#3a5785); color:#fff}
+    .muted{color:var(--muted); font-size:15px}
+    #status{margin-top:10px; font-size:15px}
+    .ok{color:#0b5f3e}
+    .err{color:#8a0d0d}
+
+    .modal{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:99999; }
+    .modal.show{ display:flex !important; }
+    .box{ background:#fff; border:1px solid #e5e7eb; border-radius:16px; width:min(620px,92vw); padding:18px; box-shadow:0 24px 60px rgba(0,0,0,.35) }
+    .box h3{ margin:0 0 10px; color:var(--primary) }
+
+    #chatMessages{ max-height:320px; overflow-y:auto; border:1px solid #ddd; padding:10px; margin-bottom:10px; background:#f9fafb; font-size:15px }
+    #chatMessages .row{ display:flex; margin:6px 0 }
+    #chatMessages .bubble{ padding:8px 12px; border-radius:12px; max-width:78%; }
+    #chatMessages .me{ justify-content:flex-end }
+    #chatMessages .me .bubble{ background:#e9efff; color:#1f2a44; text-align:right }
+    #chatMessages .other .bubble{ background:#ffffff; border:1px solid #e5e7eb; color:#333 }
+    #chatInput{ width:100%; padding:10px; border:1px solid #ccc; border-radius:8px }
+
+    @media (max-width:480px){
+      body{ font-size:16px }
+      .nav{ flex-wrap:wrap; gap:8px }
+      .navlinks{ flex-wrap:wrap }
+      .btn{ padding:10px 12px; font-size:14px }
+      table th, table td{ font-size:14px; padding:8px }
+      .card{ padding:16px }
+      .box{ width:min(560px,94vw) }
+    }
+  </style>
+</head>
+<body>
+<div class="nav">
+  <div class="brand">RideSharing • Driver</div>
+  <div class="navlinks">
+    <a class="link active" data-tab="offer" href="javascript:void(0)">Create Offer</a>
+    <a class="link" data-tab="dashboard" href="javascript:void(0)">Dashboard</a>
+    <a class="link" data-tab="myoffers" href="javascript:void(0)">My Offers</a>
+  </div>
+  <div style="display:flex; gap:10px; align-items:center">
+    <div id="whoami" style="font-weight:800">Loading…</div>
+    <button class="btn" id="logoutBtn">Logout</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <section id="tab-offer">
+    <div class="card">
+      <h3>Create Ride Offer</h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+        <div>
+          <label>Pickup</label>
+          <select id="pickup">
+            <option value="">-- Select --</option>
+            <option>DSC</option><option>Uttara</option><option>Banani</option><option>Gulshan</option><option>Mirpur</option>
+          </select>
+        </div>
+        <div>
+          <label>Dropoff</label>
+          <select id="dropoff">
+            <option value="">-- Select --</option>
+            <option>DSC</option><option>Uttara</option><option>Banani</option><option>Gulshan</option><option>Mirpur</option>
+          </select>
+        </div>
+      </div>
+      <label>Fare (৳)</label>
+      <input id="fare" type="number" placeholder="fare"/>
+      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+        <button class="btn primary" id="offerBtn" type="button">Post Offer</button>
+        <button class="btn ghost" id="cancelSelfBtn" type="button">Cancel My Active</button>
+      </div>
+      <div id="status"></div>
+    </div>
+  </section>
+
+  <section id="tab-dashboard" style="display:none">
+    <div class="card">
+      <h3>Current Ride</h3>
+      <div id="currentBox" class="muted">No current ride.</div>
+    </div>
+    <div class="card">
+      <h3>Pending Requests (BOOKED)</h3>
+      <table id="pendingTbl">
+        <thead><tr><th>Rider</th><th>Phone</th><th>Pickup</th><th>Drop</th><th>Fare</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Ride History</h3>
+      <table id="historyTbl">
+        <thead><tr><th>Pickup</th><th>Drop</th><th>Fare</th><th>Status</th><th>Time</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="tab-myoffers" style="display:none">
+    <div class="card">
+      <h3>My Offers (OFFERED)</h3>
+      <table id="myOffersTbl">
+        <thead><tr><th>Pickup</th><th>Drop</th><th>Fare</th><th>Posted/Status</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div id="confirmModal" class="modal">
+  <div class="box">
+    <h3>Do you want to cancel?</h3>
+    <div>Press <b>Yes</b> to cancel, or <b>No</b> to keep it.</div>
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px">
+      <button id="noBtn"  class="btn ghost" type="button">No</button>
+      <button id="yesBtn" class="btn warn"  type="button">Yes</button>
+    </div>
+  </div>
+</div>
+
+<div id="detailsModal" class="modal">
+  <div class="box">
+    <h3>Rider Details</h3>
+    <div id="detailsContent"></div>
+    <div style="display:flex; justify-content:flex-end; margin-top:12px">
+      <button class="btn primary" id="closeDetails" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="notifyModal" class="modal" role="alertdialog" aria-live="assertive" aria-atomic="true" aria-modal="true">
+  <div class="box">
+    <h3 id="notifyTitle">New Ride Request 🎉</h3>
+    <div id="notifyMeta" class="muted"></div>
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px" id="notifyCta">
+      <a class="btn ghost" id="notifyCallBtn" href="#" style="display:none">📞Call</a>
+      <button class="btn ghost" id="notifyChatBtn" type="button" style="display:none">💬 Open Chat</button>
+      <button class="btn primary" id="notifyViewBtn" type="button">View Details</button>
+      <button class="btn ghost"   id="notifyOkBtn"   type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="chatModal" class="modal">
+  <div class="box">
+    <h3>💬 Chat</h3>
+    <div id="chatMessages"></div>
+    <div style="display:flex; gap:8px">
+      <input id="chatInput" type="text" placeholder="Type a message…"/>
+      <button class="btn primary" id="chatSendBtn" type="button">Send</button>
+    </div>
+    <div style="text-align:right;margin-top:8px">
+      <button class="btn ghost" id="chatCloseBtn" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const AUTH_BASE  = `${location.origin}/api/auth`;
+  const RIDES_BASE = `${location.origin}/api/rides`;
+  const FARES_BASE = `${location.origin}/api/fares`;
+  const CHAT_BASE  = `${location.origin}/api/chat`;
+
+  const $ = s => document.querySelector(s);
+
+  function clearAuthData() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('email');
+    localStorage.removeItem('name');
+  }
+
+  const setStatus = (m,t='')=>{ const s=$("#status"); s.className=t; s.textContent=m||''; };
+  const authHeader=()=>{ const t=localStorage.getItem('token'); return t?{Authorization:'Bearer '+t}:{}; };
+
+  async function getJSON(u){
+    const r=await fetch(u,{headers:authHeader()});
+    const t=await r.text();
+    let d=null;
+    try{ d=t?JSON.parse(t):null; }catch{}
+    if(!r.ok) throw new Error(d?.message||t||('HTTP '+r.status));
+    return d;
+  }
+
+  async function postJSON(u,b){
+    const r=await fetch(u,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',...authHeader()},
+      body:JSON.stringify(b)
+    });
+    const t=await r.text();
+    let d=null;
+    try{ d=t?JSON.parse(t):null; }catch{}
+    if(!r.ok) throw new Error(d?.message||t||('HTTP '+r.status));
+    return d;
+  }
+
+  async function put(u){
+    const r=await fetch(u,{method:'PUT',headers:authHeader()});
+    const t=await r.text();
+    let d=null;
+    try{ d=t?JSON.parse(t):null; }catch{}
+    if(!r.ok) throw new Error(d?.message||t||('HTTP '+r.status));
+    return d;
+  }
+
+  document.querySelectorAll('.link').forEach(a=>{
+    a.onclick=()=>{
+      document.querySelectorAll('.link').forEach(x=>x.classList.remove('active'));
+      a.classList.add('active');
+      const k=a.getAttribute('data-tab');
+      ['offer','dashboard','myoffers'].forEach(id=>{
+        document.getElementById('tab-'+id).style.display = (id===k)?'block':'none';
+      });
+    };
+  });
+
+  function openModal(el){ el.classList.add('show'); trapFocus(el); }
+  function closeModal(el){ releaseTrap(el); el.classList.remove('show'); }
+
+  function trapFocus(el){
+    const sel = 'a[href],button,textarea,input,select,[tabindex]:not([tabindex="-1"])';
+    const nodes = Array.from(el.querySelectorAll(sel)).filter(n=>!n.disabled);
+    if(!nodes.length) return;
+    const first = nodes[0], last = nodes[nodes.length-1];
+
+    function onKey(e){
+      if(e.key==='Escape'){ e.preventDefault(); return; }
+      if(e.key==='Tab'){
+        if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+        else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+      }
+    }
+
+    el._handler = onKey;
+    document.addEventListener('keydown', onKey);
+    setTimeout(()=>first.focus(), 10);
+  }
+
+  function releaseTrap(el){
+    if(el._handler){
+      document.removeEventListener('keydown', el._handler);
+      delete el._handler;
+    }
+  }
+
+  const confirmModal = $('#confirmModal'), yesBtn = $('#yesBtn'), noBtn = $('#noBtn');
+  const detailsModal = $('#detailsModal'), closeDetails = $('#closeDetails'), detailsContent = $('#detailsContent');
+  const notifyModal  = $('#notifyModal'), notifyTitle = $('#notifyTitle'), notifyMeta = $('#notifyMeta');
+
+  const openConfirm = ()=> openModal(confirmModal);
+  const closeConfirm = ()=> closeModal(confirmModal);
+  const openDetails  = (html)=>{ detailsContent.innerHTML=html; openModal(detailsModal); };
+  const closeDetailsModal = ()=> closeModal(detailsModal);
+  closeDetails.onclick = closeDetailsModal;
+
+  let bookingAckPending = false;
+
+  const openNotify = (title, metaHTML, config)=>{
+    notifyTitle.textContent = title || 'New Ride Request';
+    notifyMeta.innerHTML = metaHTML || '';
+    $('#notifyViewBtn').style.display = (config && config.hideView)? 'none':'inline-block';
+    $('#notifyCallBtn').style.display = config?.callHref ? 'inline-block':'none';
+    if(config?.callHref) $('#notifyCallBtn').href = config.callHref;
+    $('#notifyChatBtn').style.display = config?.onChat ? 'inline-block':'none';
+    $('#notifyChatBtn').onclick = ()=>{ closeModal(notifyModal); config.onChat(); };
+    $('#notifyOkBtn').onclick = ()=> { closeModal(notifyModal); if(config?.onOk) config.onOk(); };
+    openModal(notifyModal);
+  };
+
+  async function quoteFare(pickup, dropoff){
+    if(!pickup || !dropoff || pickup===dropoff) return null;
+    const qs = new URLSearchParams({pickup, dropoff}).toString();
+    return getJSON(`${FARES_BASE}/quote?${qs}`);
+  }
+
+  async function onRouteChange(){
+    const p = $('#pickup').value, d = $('#dropoff').value;
+    try{
+      const q = await quoteFare(p,d);
+      if(typeof q === 'number' && !Number.isNaN(q)){
+        if(!$('#fare').value || Number($('#fare').value)===0) $('#fare').value = q;
+      }
+    }catch{}
+  }
+
+  $('#pickup').addEventListener('change', onRouteChange);
+  $('#dropoff').addEventListener('change', onRouteChange);
+
+  let notifiedIds = new Set();
+  let lastSnapshotIds = new Set();
+  let meUser = null;
+
+  let chatRideId = null;
+  let chatOtherName = 'Rider';
+  let chatBoxUserScrolledUp = false;
+  let lastChatNotifiedId = null;
+
+  const chatBoxEl = ()=> document.getElementById('chatMessages');
+  const isNearBottom = (el)=> (el.scrollHeight - (el.scrollTop + el.clientHeight)) < 40;
+
+  function attachChatScrollGuard(){
+    const el = chatBoxEl();
+    if(!el || el._guarded) return;
+    el._guarded = true;
+    el.addEventListener('scroll', ()=>{
+      chatBoxUserScrolledUp = !isNearBottom(el);
+    });
+  }
+
+  function renderMessagesWithSmartScroll(renderFn){
+    const el = chatBoxEl();
+    if(!el) return renderFn();
+    const shouldStick = isNearBottom(el) && !chatBoxUserScrolledUp;
+    renderFn();
+    if(shouldStick){ el.scrollTop = el.scrollHeight; }
+  }
+
+  function extractText(m){ return m?.message ?? m?.content ?? m?.text ?? m?.body ?? ''; }
+
+  (async function init(){
+    try{
+      const me = await getJSON(`${AUTH_BASE}/me`);
+      meUser = me;
+
+      if (!me || String(me.role).toUpperCase() !== 'DRIVER') {
+        clearAuthData();
+        alert('Please login as DRIVER');
+        location.href = '/auth.html';
+        return;
+      }
+
+      localStorage.setItem('role', me.role || '');
+      localStorage.setItem('email', me.email || '');
+      localStorage.setItem('name', me.name || '');
+
+      $('#whoami').textContent = `${me.name || me.email} • ${me.studentId || '-'}`;
+      window.meUser = me;
+    } catch (e) {
+      clearAuthData();
+      alert('Session expired. Please login again.');
+      location.href = '/auth.html';
+      return;
+    }
+
+    try {
+      const db0 = await getJSON(`${RIDES_BASE}/driver/dashboard`);
+      await paintDashboard(db0);
+      lastSnapshotIds = new Set((db0.pending || []).map(x => String(x.id)));
+    } catch (e) {
+      setStatus(e.message || 'Dashboard load failed','err');
+    }
+
+    setInterval(checkForNewBookings, 1000);
+    loadHistory();
+    setInterval(loadHistory, 12000);
+    setInterval(pollChatForPopup, 2000);
+  })();
+
+  async function checkForNewBookings(){
+    try{
+      const db = await getJSON(`${RIDES_BASE}/driver/dashboard`);
+      const pending = Array.isArray(db.pending)? db.pending : [];
+      const currentIds = new Set(pending.map(x=>String(x.id)));
+
+      for(const row of pending){
+        const id = String(row.id);
+        if(!lastSnapshotIds.has(id) || !notifiedIds.has(id)){
+          notifiedIds.add(id);
+          const meta = `
+            <b>${row.riderName||'Rider'} • ${row.riderStudentId||('#'+(row.riderId||''))}</b><br/>
+            Email: <b>${row.riderEmail||'-'}</b>${row.riderPhone?` • Phone: <b>${row.riderPhone}</b>`:''}<br/>
+            Route: ${row.pickupLocation} → ${row.dropoffLocation} • Fare: ৳${row.fare}
+          `;
+          bookingAckPending = true;
+          openNotify('New Booking Received 🎉', meta, {
+            callHref: row.riderPhone ? `tel:${row.riderPhone}` : null,
+            onChat: ()=> openChat(row.id, row.riderName||'Rider'),
+            onOk: ()=> { bookingAckPending = false; }
+          });
+        }
+      }
+      lastSnapshotIds = currentIds;
+      await paintDashboard(db);
+    }catch(e){}
+  }
+
+  function riderBlock(r){
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><b>Rider:</b> ${r.riderName||'-'} • ${r.riderStudentId||('#'+(r.riderId||''))}</div>
+        <div><b>Phone:</b> ${r.riderPhone||'-'}</div>
+        <div><b>Email:</b> ${r.riderEmail||'-'}</div>
+        <div class="full"><b>Route:</b> ${r.pickupLocation} → ${r.dropoffLocation}</div>
+        <div class="full"><b>Fare:</b> ৳${r.fare}</div>
+        <div class="full"><b>Status:</b> ${r.status}</div>
+      </div>`;
+  }
+
+  async function paintDashboard(db){
+    const cur = db.current;
+    const box = $('#currentBox');
+
+    if(cur){
+      box.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <div style="min-width:280px">${riderBlock(cur)}</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn ghost" id="viewCurBtn">View</button>
+            <button class="btn chat"  id="chatCurBtn">💬 Chat</button>
+            <button class="btn warn"  id="cancelCurBtn">Cancel</button>
+            <button class="btn primary" id="completeBtn">Complete</button>
+          </div>
+        </div>`;
+      $('#offerBtn').disabled = true;
+
+      $('#completeBtn').onclick = async ()=>{
+        try{
+          await put(`${RIDES_BASE}/${cur.id}/complete`);
+          setStatus(`Ride #${cur.id} completed ✅`,'ok');
+          $('#offerBtn').disabled=false;
+          refreshAll();
+        }catch(e){ setStatus(e.message||'Complete failed','err'); }
+      };
+
+      $('#cancelCurBtn').onclick = async ()=>{
+        try{
+          await put(`${RIDES_BASE}/${cur.id}/cancel`);
+          setStatus(`Ride #${cur.id} cancelled ✅`,'ok');
+          $('#offerBtn').disabled=false;
+          refreshAll();
+        }catch(e){ setStatus(e.message||'Cancel failed','err'); }
+      };
+
+      $('#viewCurBtn').onclick = ()=> openDetails(riderBlock(cur));
+      $('#chatCurBtn').onclick = ()=> openChat(cur.id, cur.riderName||'Rider');
+    }else{
+      box.textContent = 'No current ride.';
+      $('#offerBtn').disabled = false;
+    }
+
+    const tbody = document.querySelector('#pendingTbl tbody');
+    tbody.innerHTML = '';
+    const pend = Array.isArray(db.pending)? db.pending : [];
+
+    if(!pend.length){
+      tbody.innerHTML = '<tr><td colspan="6">No pending requests.</td></tr>';
+    }else{
+      pend.forEach(r=>{
+        const who = (r.riderName ? r.riderName+' • ' : '') + (r.riderStudentId || ('#'+(r.riderId||'')));
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${who}</td>
+          <td>${r.riderPhone||'-'}</td>
+          <td>${r.pickupLocation}</td>
+          <td>${r.dropoffLocation}</td>
+          <td>${r.fare} ৳</td>
+          <td style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn primary" data-act="start" data-id="${r.id}">Confirm & Start</button>
+            <button class="btn warn" data-act="cancel" data-id="${r.id}">Cancel</button>
+            <button class="btn ghost" data-act="view" data-id="${r.id}">View</button>
+            <button class="btn chat" data-act="chat" data-id="${r.id}">💬 Chat</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('button').forEach(b=>{
+        b.onclick = async ()=>{
+          const id = b.getAttribute('data-id');
+          const act = b.getAttribute('data-act');
+
+          if(act==='start'){
+            try{
+              await put(`${RIDES_BASE}/${id}/start`);
+              setStatus(`Ride #${id} started ✅`,'ok');
+              refreshAll();
+            }catch(e){ setStatus(e.message||'Start failed','err'); }
+          }else if(act==='cancel'){
+            openConfirm();
+            yesBtn.onclick = async ()=>{
+              try{
+                await put(`${RIDES_BASE}/${id}/cancel`);
+                setStatus(`Ride #${id} cancelled ✅`,'ok');
+                closeConfirm();
+                refreshAll();
+              }catch(e){
+                setStatus(e.message||'Cancel failed','err');
+                closeConfirm();
+              }
+            };
+            noBtn.onclick = ()=> closeConfirm();
+          }else if(act==='view'){
+            try{
+              const db2 = await getJSON(`${RIDES_BASE}/driver/dashboard`);
+              const row = (db2.pending||[]).find(x=>x.id==id);
+              if(row) openDetails(riderBlock(row));
+            }catch(e){}
+          }else if(act==='chat'){
+            const db2 = await getJSON(`${RIDES_BASE}/driver/dashboard`);
+            const row = (db2.pending||[]).find(x=>String(x.id)===String(id));
+            openChat(id, (row && row.riderName) ? row.riderName : 'Rider');
+          }
+        };
+      });
+    }
+  }
+
+  async function refreshAll(){ await Promise.all([refreshDashboard(), refreshMyOffers()]); }
+
+  async function refreshDashboard(){
+    try{
+      const db = await getJSON(`${RIDES_BASE}/driver/dashboard`);
+      await paintDashboard(db);
+    }catch(e){
+      setStatus(e.message||'Dashboard load failed','err');
+    }
+  }
+
+  async function refreshMyOffers(){
+    try{
+      const list = await getJSON(`${RIDES_BASE}/driver/offers`);
+      const db   = await getJSON(`${RIDES_BASE}/driver/dashboard`);
+      const booked = Array.isArray(db.pending) ? db.pending : [];
+
+      const tbody = document.querySelector('#myOffersTbl tbody');
+      tbody.innerHTML = '';
+
+      if (booked.length){
+        booked.forEach(r=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.pickupLocation}</td>
+            <td>${r.dropoffLocation}</td>
+            <td>${r.fare} ৳</td>
+            <td>Booked – awaiting confirm</td>
+            <td><span class="muted">Use Dashboard → Confirm & Start</span></td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      if(!list.length && !booked.length){
+        tbody.innerHTML = '<tr><td colspan="5">No active offers.</td></tr>';
+        return;
+      }
+
+      list.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r.pickupLocation}</td>
+          <td>${r.dropoffLocation}</td>
+          <td>${r.fare} ৳</td>
+          <td>${(r.requestTime||'').toString().replace('T',' ')}</td>
+          <td>
+            <button class="btn ghost" data-act="view" data-id="${r.id}">View</button>
+            <button class="btn warn" data-act="cancel" data-id="${r.id}">Cancel</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('button').forEach(btn=>{
+        btn.onclick = ()=>{
+          const id = btn.getAttribute('data-id');
+          const act = btn.getAttribute('data-act');
+
+          if(act==='view'){
+            const row = list.find(x=>x.id==id);
+            if(row){
+              openDetails(`<div><b>Pickup:</b> ${row.pickupLocation}</div><div><b>Drop:</b> ${row.dropoffLocation}</div><div><b>Fare:</b> ৳${row.fare}</div><div><b>Status:</b> ${row.status}</div>`);
+            }
+          } else if(act==='cancel'){
+            openConfirm();
+            yesBtn.onclick = async ()=>{
+              try{
+                await put(`${RIDES_BASE}/${id}/cancel`);
+                setStatus(`Offer #${id} cancelled ✅`,'ok');
+                closeConfirm();
+                refreshAll();
+              }catch(e){
+                setStatus(e.message||'Cancel failed','err');
+                closeConfirm();
+              }
+            };
+            noBtn.onclick = ()=> closeConfirm();
+          }
+        };
+      });
+    }catch(e){
+      setStatus(e.message||'Offers load failed','err');
+    }
+  }
+
+  $('#offerBtn').addEventListener('click', async ()=>{
+    setStatus('');
+    const pickup = $('#pickup').value, dropoff = $('#dropoff').value;
+    const fare   = Number($('#fare').value || NaN);
+
+    if(!pickup || !dropoff) return setStatus('Select pickup & dropoff','err');
+    if(pickup===dropoff) return setStatus('Pickup & dropoff cannot be same','err');
+
+    try{
+      await postJSON(`${RIDES_BASE}/offer`, {
+        pickupLocation: pickup,
+        dropoffLocation: dropoff,
+        fare: isNaN(fare)? null : fare
+      });
+      setStatus('Offer posted ✅','ok');
+      $('#pickup').value='';
+      $('#dropoff').value='';
+      $('#fare').value='';
+      refreshAll();
+    }catch(e){
+      setStatus(e.message||'Failed','err');
+    }
+  });
+
+  $('#cancelSelfBtn').addEventListener('click', ()=>{
+    openConfirm();
+    yesBtn.onclick = async ()=>{
+      try{
+        const data = await put(`${RIDES_BASE}/cancel/self`);
+        setStatus(`Cancelled ✅ (Ride/Post #${data.id})`,'ok');
+        closeConfirm();
+        refreshAll();
+      }catch(e){
+        setStatus(e.message||'Cancel failed','err');
+        closeConfirm();
+      }
+    };
+    noBtn.onclick = ()=> closeConfirm();
+  });
+
+  $('#logoutBtn').addEventListener('click', () => {
+    clearAuthData();
+    location.href = '/auth.html';
+  });
+
+  function openChat(rideId, otherName){
+    chatRideId = rideId;
+    chatOtherName = otherName || 'Rider';
+    $('#chatMessages').innerHTML = '';
+    chatBoxUserScrolledUp = false;
+    openModal($('#chatModal'));
+    loadChatMessages();
+    attachChatScrollGuard();
+  }
+
+  $('#chatCloseBtn').onclick = ()=>{
+    chatRideId=null;
+    closeModal($('#chatModal'));
+  };
+
+  async function loadChatMessages(){
+    if(!chatRideId) return;
+    try{
+      const msgs = await getJSON(`${CHAT_BASE}/${chatRideId}/messages`);
+      renderMessagesWithSmartScroll(()=>{
+        const box = $('#chatMessages');
+        box.innerHTML='';
+
+        msgs.forEach(m=>{
+          const senderId   = m.senderId ?? m.senderID ?? m.userId ?? m.uid;
+          const senderRole = (m.senderRole || '').toUpperCase();
+          const text       = extractText(m);
+
+          const isMe = String(senderId) === String((window.meUser || {}).id || '');
+
+          const row = document.createElement('div');
+          row.className='row '+(isMe?'me':'other');
+
+          const bubble=document.createElement('div');
+          bubble.className='bubble';
+          bubble.textContent = (isMe ? 'You: ' : ((senderRole === 'RIDER' ? chatOtherName : 'Driver') + ': ')) + text;
+
+          row.appendChild(bubble);
+          box.appendChild(row);
+        });
+      });
+    }catch(e){
+      console.error('Load chat failed:', e);
+    }
+  }
+
+  async function sendChatMessage(){
+    if(!chatRideId) return;
+
+    const val = $('#chatInput').value.trim();
+    if(!val) {
+      alert('Message likho age');
+      return;
+    }
+
+    try{
+      await postJSON(`${CHAT_BASE}/${chatRideId}/send`, {
+        senderId: (window.meUser || {}).id,
+        senderRole: 'DRIVER',
+        message: val
+      });
+
+      $('#chatInput').value = '';
+      chatBoxUserScrolledUp = false;
+      await loadChatMessages();
+    }catch(e){
+      alert('Message send failed: ' + (e.message || 'Unknown error'));
+      console.error('Chat send error:', e);
+    }
+  }
+
+  $('#chatSendBtn').onclick = sendChatMessage;
+  $('#chatInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      sendChatMessage();
+    }
+  });
+
+  setInterval(()=>{ if(chatRideId) loadChatMessages(); }, 2000);
+
+  async function pollChatForPopup(){
+    try{
+      if (bookingAckPending || document.getElementById('notifyModal').classList.contains('show')) return;
+
+      const db = await getJSON(`${RIDES_BASE}/driver/dashboard`);
+      const cur = db.current;
+      const any = cur || (Array.isArray(db.pending)&&db.pending[0] ? db.pending[0] : null);
+      const rid = any?.id;
+      if(!rid) return;
+
+      const msgs = await getJSON(`${CHAT_BASE}/${rid}/messages`);
+      if(!Array.isArray(msgs) || !msgs.length) return;
+
+      const last = msgs[msgs.length-1];
+      const lastIdSig = (last.id ?? last.sentAt ?? JSON.stringify(last)).toString();
+      const lastSender = last.senderId ?? null;
+
+      if(!document.getElementById('chatModal').classList.contains('show')
+         && String(lastSender)!==String(window.meUser?.id||'')
+         && lastChatNotifiedId !== lastIdSig){
+        lastChatNotifiedId = lastIdSig;
+        const senderName = any?.riderName || 'Rider';
+        const text = extractText(last);
+        openNotify('New chat message', `<b>${senderName}</b>: ${text}`, {
+          hideView: true,
+          onChat: ()=> openChat(rid, any?.riderName||'Rider'),
+          onOk: ()=> {}
+        });
+      }
+    }catch(e){
+      console.error('Chat popup poll failed:', e);
+    }
+  }
+
+  async function loadHistory(){
+    try{
+      const rows = await getJSON(`${RIDES_BASE}/driver/history`);
+      const tbody = document.querySelector('#historyTbl tbody');
+      tbody.innerHTML = '';
+
+      if(!rows.length){
+        tbody.innerHTML = '<tr><td colspan="5">No history</td></tr>';
+        return;
+      }
+
+      rows.forEach(x=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${x.pickupLocation}</td><td>${x.dropoffLocation}</td><td>${x.fare} ৳</td><td>${x.status}</td><td>${(x.requestTime||'').toString().replace('T',' ')}</td>`;
+        tbody.appendChild(tr);
+      });
+    }catch(e){}
+  }
+</script>
+</body>
+</html>
